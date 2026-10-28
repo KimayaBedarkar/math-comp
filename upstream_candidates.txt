@@ -1,0 +1,664 @@
+SSReflect upstreaming candidates
+================================
+
+Audit date: 2026-10-09
+Upstream: math-comp/math-comp master
+Commit: 9931c887da3d50ffb2a2e1b2e33b52ec9178a755
+Source: https://github.com/math-comp/math-comp/tree/9931c887da3d50ffb2a2e1b2e33b52ec9178a755
+
+Scope
+-----
+The accompanying upstream_candidates.v contains the thirteen remaining
+candidates, grouped into seven proposed PRs. These are proposals for review,
+not a claim that maintainers must accept every convenience lemma. No exact
+sequence-based counterpart was found in the checked upstream sources.
+All are derivable from existing facts; their value is a reusable interface.
+Names and PR groups below are proposed, not assigned GitHub PR numbers.
+The six lemmas already prepared in numbered PRs are listed separately.
+
+For each candidate, the audit examined its Prosa declaration and callers,
+searched upstream declarations and inspected the closest relevant facts.
+Statements use native MathComp notation and statement macros. Proofs use
+SSR views, rewriting, induction where useful, and explicit terminators;
+no lia, admits, axioms, Prosa imports, or Prosa-specific notation is used.
+
+PR A: singleton and partition big operators over sequences (boot/bigop.v)
+------------------------------------------------------------------------
+1. big_pred1_seq
+   Prosa: util/bigop.v, same name.
+   Upstream: big_pred1/big_pred1_eq require a finType; neither accepts an
+   arbitrary unique sequence. filter_pred1_uniq and big_seq1 provide the
+   short derivation. This is a sequence convenience companion.
+   Need: used by analysis/facts/model/workload.v,
+   analysis/facts/model/service_of_jobs.v, and
+   results/transfer_schedulability/criterion.v. It also simplifies item 2.
+   Statement: arbitrary monoid, eqType indices, sequence membership,
+   uniqueness, and extensional equality with pred1. No commutativity needed.
+   Proof: eq_bigl, big_filter, filter_pred1_uniq, big_seq1.
+
+2. partition_big_seq
+   Prosa: util/sum.v, sum_over_partitions_eq.
+   Upstream: partition_big requires finite-type partition labels; its
+   label predicate is not an arbitrary unique sequence over an eqType.
+   exchange_big supplies the interchange, but not this sequence interface.
+   Need: analysis/facts/model/workload.v uses the Prosa equality to group
+   work by task. The wrapper avoids repeating interchange and singleton
+   proofs in clients.
+   Statement: generalized from nat addition to any commutative monoid.
+   Only the label sequence must be unique; the input sequence may repeat
+   elements. Coverage is restricted to selected elements of that sequence.
+   Proof: exchange_big, big_mkcond, eq_big_seq, and item 1.
+   Dependency: proposed in the same PR as item 1.
+
+PR B: uniqueness and membership of concatenated sequences (boot/bigop.v)
+--------------------------------------------------------
+3. bigcat_uniq
+   Prosa: util/bigcat.v, same name.
+   Upstream: cat_uniq treats two sequences; allpairs_uniq_dep treats mapped
+   dependent pairs using injectivity. The latter can express a more general
+   route to this result, but no matching big-concatenation interface exists.
+   Need: implementation/facts/job_constructor.v and
+   analysis/facts/delay_propagation.v use this direct interface.
+   Statement: unique index sequence, unique selected component sequences,
+   and disjointness expressed by equality of indices sharing an element.
+   Uses native big[cat/[::]] notation instead of Prosa's cat notation.
+   Proof: structural induction, cat_uniq, mem_bigcatP, and disjointness.
+   Decision: convenience candidate; if maintainers prefer allpairs_uniq_dep
+   directly, retain a short Prosa wrapper instead. Further localization of
+   the component hypotheses is possible and may be requested in review.
+
+4. bigcat_nat_uniq
+   Prosa: util/bigcat.v, same name.
+   Upstream: no matching natural-range concatenation lemma. It follows
+   from item 3 and iota_uniq; it adds no independent mathematical result.
+   Need: implementation/facts/job_constructor.v and
+   analysis/facts/behavior/arrivals.v use the range interface.
+   Statement: natural interval, unique components, and the same disjointness
+   hypothesis. Empty and reversed intervals are covered without extra bounds.
+   Proof: item 3 and iota_uniq.
+   Decision: propose with item 3; retain locally if upstream wants only the
+   sequence lemma. The wrapper avoids exposing index_iota to clients.
+
+PR C: sequence bounds for least common multiples (boot/bigop.v)
+-------------------------------------------------------------
+5. biglcmn_sup_seq
+   Prosa: util/lcmseq.v, lcm_seq_is_mult_of_all_ints.
+   Upstream: biglcmn_sup is indexed by a finType, while dvdn_biglcmP tests
+   whether the entire LCM divides a number (the other direction).
+   Neither is the proposed sequence bound.
+   Need: analysis/facts/hyperperiod.v uses divisibility of each period into
+   the sequence LCM in two places.
+   Statement: generalized from a sequence of naturals to a filtered sequence
+   of eqType indices and a nat-valued function. Any divisor of a selected
+   value divides the big LCM. Prosa's foldr lcmn 1 follows via foldrE.
+   Proof: big_rem, dvdn_lcml, dvdn_trans.
+
+PR D: remainder comparison under equal quotients (boot/div.v)
+------------------------------------------------------------
+6. eqdivn_leqmodn
+   Prosa: util/div_mod.v, same name.
+   Upstream: divn_eq and leq_add2l derive it immediately; leq_mod only
+   bounds a remainder by the original number. No equal-quotient comparison
+   interface was found.
+   Need: implementation/facts/extrapolated_arrival_curve.v uses the
+   implication currently supplied by Prosa.
+   Statement: strengthened to Boolean equality of the two order tests
+   under equal quotients; no assumption d > 0. Division by zero is covered
+   because divn_eq holds for zero as well.
+   Proof: expand both dividends with divn_eq, rewrite equal quotients,
+   and cancel their common prefix with leq_add2l.
+
+Additional candidates from the complete four-file audit
+------------------------------------------------------
+7. bigcatE (PR B, boot/bigop.v)
+   Convert filtered big concatenation to flatten of mapped filtered indices.
+   No matching bridge is named upstream; foldrE and big_map prove it.
+   This is the shared bridge behind the repeated membership conversions,
+   not a proposal for separate interval/ordinal bridge variants.
+
+8. mem_bigcatP (PR B, boot/bigop.v)
+   Reflected membership view with index membership, predicate satisfaction,
+   and component membership. Upstream flatten_mapP supplies the analogous
+   flatten view, but no direct big-concatenation view exists.
+   Consolidates mem_bigcat_nat, mem_bigcat_nat_exists, mem_bigcat, and
+   mem_bigcat_exists; the unused ordinal variant should simply be deleted.
+   Their 27 code occurrences justify one shared interface. The proposed
+   view preserves the predicate witness that Prosa's exists form drops.
+
+9. leq_sum_seq (PR F, boot/bigop.v)
+   Support-local pointwise sum monotonicity. Existing leq_sum requires
+   global selected-index bounds; big_seq_cond gives the short derivation.
+   Prosa uses this interface 24 times, making it a useful API companion to
+   the support-local predicate/count interfaces already proposed.
+
+10. sum_nat_lt_size (PR F, boot/bigop.v)
+    A nat-valued sum smaller than its support size implies has (F == 0).
+    Generalizes sum_le_summation_range without interval arithmetic or
+    specialized completion predicates. No matching zero-witness interface
+    was found; leq_sum and sum1_size give the contrapositive proof.
+
+11. leq_sum_partition (PR A, boot/bigop.v)
+    Covering sequence of arbitrary eqType labels may contain duplicates;
+    summing the partitions can overcount, yielding an inequality.
+    Existing partition_big requires finite-type labels and decomposes an
+    equality. Five uses of sum_over_partitions_le, and four of its
+    excluded-label specialization reorder_summation, motivate one general
+    sequence inequality rather than two client-specific lemmas.
+    Proof: exchange_big, big_seq, leq_sum, and a positive label count.
+    This proof is independent of the proposed PR F sum lemmas.
+
+12. big_unit (PR G, boot/bigop.v)
+    Generalize the 15-use sum_unit1 to an arbitrary monoid over unit indices.
+    Upstream has big_ord1 and big_bool, but no unit-indexed counterpart.
+    Proof: the unit enumeration is a singleton, then big_seq1.
+
+13. sorted_filter_split (PR H, boot/path.v)
+    A sorted sequence splits into the P and predC P filters when P is
+    antitone for the transitive sorting relation. This generalizes the
+    payload/threshold-specific sorted_split rather than encoding a local
+    nat-valued function into an order on arbitrary payloads.
+    Upstream ordered-type sorted_filter_le/gt are related, but do not
+    directly cover a noninjective key function. Existing sorted_filter
+    first handles Prosa's additional outer predicate; filter_predI then
+    translates the two pieces. No matching generic relation/predicate
+    decomposition was found. Proof uses path_sortedE and hasPn.
+
+Not proposed for upstreaming: keep in Prosa
+------------------------------------------
+sum_ge_2_seq and sum_ge_2_nat (formerly proposed as sum_nat_seq_ge2 and
+sum_nat_ge2) are too specialized in their current zero-or-one sum form.
+They are omitted from the review file. Keep them in Prosa, potentially
+simplifying their proofs through predicate counts. A more general counting
+interface would need a separate audit before any upstream proposal.
+
+Already prepared: six lemmas in four PRs
+----------------------------------------
+#1649: last_filter, sub_in_count
+       Prosa names: last0_filter, sub_count_seq.
+#1650: sub_in_sum
+       Prosa name: leq_sum_seq_pred.
+#1651: eq_sum_leq_seq, ltn_sum_leq_seq
+       Prosa names unchanged; the strict version has a Boolean has interface.
+#1652: eq_bigmax_seq
+       Prosa name: bigmax_witness.
+These are not repeated in the review file; their numbered branches contain
+those implementations. This list records preparation, not merge status.
+
+Validation
+----------
+The review file is standalone and compiled with Rocq 9.2 using the
+zephyr-modelling opam switch. It is additionally compiled against the clean
+upstream boot sources at the commit above, without depending on PRs
+#1649-#1652. Each of its thirteen lemmas has exactly one comment identifying its
+proposed PR group. The file and this document are review artifacts, not
+changes to the numbered PR's implementation or changelog.
+
+
+Complete audit of generic Prosa utilities
+=========================================
+
+Scope: every named result currently declared in util/bigop.v,
+util/bigcat.v, util/list.v, and util/sum.v (76 results total).
+Audited upstream: math-comp/math-comp master at
+9931c887da3d50ffb2a2e1b2e33b52ec9178a755, checked 2026-10-09.
+
+Decisions are migration proposals, not completed deletions. Prosa proofs
+have not been modified or rebuilt for these replacements. The additional
+upstream candidates in upstream_candidates.v have been compiled against
+the clean audited boot sources. Replacements involving local definitions
+require callers and those definitions to migrate together.
+
+Summary: 4 KEEP LOCAL, 1 KEEP WRAPPER, 5 PREPARED, 13 PROPOSE, 53 REPLACE.
+
+Meaning of decisions:
+REPLACE: migrate callers to existing/proposed general APIs, then delete.
+PROPOSE: useful missing interface; proposed name/group below.
+PREPARED: already represented in PRs #1649-#1651; migrate after availability.
+KEEP WRAPPER: conscious small local adapter, with rationale and simplification.
+KEEP LOCAL: specialized interface/algorithm, not a generic upstream theorem.
+
+Code occurrence counts below exclude comments and declaration names.
+They count both internal and external uses, not distinct proof callers.
+No-usage results are checked separately rather than silently upstreamed.
+
+util/bigop.v
+------------
+1 results: 1 PROPOSE.
+
+big_pred1_seq — PROPOSE
+PR A, big_pred1_seq in the review file: generic monoid singleton over a unique sequence; upstream big_pred1 is finite-type indexed.
+Code uses: 3.
+Locations: results/transfer_schedulability/criterion.v:844; analysis/facts/model/service_of_jobs.v:280; analysis/facts/model/workload.v:191.
+
+util/bigcat.v
+-------------
+13 results: 6 PROPOSE, 7 REPLACE.
+
+mem_bigcat_nat — PROPOSE
+PR B, consolidate into mem_bigcatP plus bigcatE. Existing flatten_mapP supplies the mathematics, but clients currently repeat bigop/flatten and filter conversions. The reflected sequence view preserves predicate satisfaction, which mem_bigcat_exists currently drops. Specialize using mem_index_iota for natural intervals; do not upstream four separate directional wrappers.
+Code uses: 4.
+Locations: analysis/facts/job_index.v:133; analysis/facts/behavior/arrivals.v:330; analysis/facts/behavior/arrivals.v:355; analysis/facts/model/task_arrivals.v:74.
+
+mem_bigcat_nat_exists — PROPOSE
+PR B, consolidate into mem_bigcatP plus bigcatE. Existing flatten_mapP supplies the mathematics, but clients currently repeat bigop/flatten and filter conversions. The reflected sequence view preserves predicate satisfaction, which mem_bigcat_exists currently drops. Specialize using mem_index_iota for natural intervals; do not upstream four separate directional wrappers.
+Code uses: 15.
+Locations: util/bigcat.v:98; analysis/facts/job_index.v:114; analysis/facts/job_index.v:132; analysis/facts/job_index.v:302; analysis/facts/job_index.v:333; analysis/facts/job_index.v:336; analysis/facts/job_index.v:366; analysis/facts/hyperperiod.v:124; analysis/facts/hyperperiod.v:194; analysis/facts/behavior/arrivals.v:227; analysis/facts/behavior/arrivals.v:296; analysis/facts/behavior/arrivals.v:312; analysis/facts/behavior/arrivals.v:342; analysis/facts/behavior/arrivals.v:465; analysis/facts/model/task_arrivals.v:230.
+
+mem_bigcat_ord — REPLACE
+No code callers found. Delete rather than upstream another directional wrapper. If needed later, specialize mem_bigcatP to the ordinal enumeration; the explicit j < n hypothesis is redundant for j : ordinal n.
+Code uses: 0.
+
+bigcat_nat_uniq — PROPOSE
+PR B, corresponding review-file lemmas. allpairs_uniq_dep is related but lacks the direct concatenation interface; the interval form is a convenience specialization. Review may choose to retain only the sequence form upstream.
+Code uses: 2.
+Locations: implementation/facts/job_constructor.v:64; analysis/facts/behavior/arrivals.v:366.
+
+bigcat_nat_filter_eq_filter_bigcat_nat — REPLACE
+Use big_morph with filter_cat (filter maps the cat monoid to itself); alternatively bigcatE, filter_flatten, and map_map. The same morphism proof handles the interval form; no interval induction or separate natural-range theorem is needed.
+Code uses: 3.
+Locations: analysis/facts/behavior/arrivals.v:273; analysis/facts/model/task_arrivals.v:294; analysis/facts/model/task_arrivals.v:306.
+
+size_big_nat — REPLACE
+Use big_morph with size_cat and size_nil, reversing equality as needed. Alternatively bigcatE and size_flatten. This is already the standard size homomorphism interface.
+Code uses: 2.
+Locations: implementation/facts/maximal_arrival_sequence.v:132; analysis/facts/model/task_arrivals.v:306.
+
+mem_bigcat — PROPOSE
+PR B, consolidate into mem_bigcatP plus bigcatE. Existing flatten_mapP supplies the mathematics, but clients currently repeat bigop/flatten and filter conversions. The reflected sequence view preserves predicate satisfaction, which mem_bigcat_exists currently drops. Specialize using mem_index_iota for natural intervals; do not upstream four separate directional wrappers.
+Code uses: 2.
+Locations: util/bigcat.v:340; analysis/facts/model/rbf.v:791.
+
+mem_bigcat_exists — PROPOSE
+PR B, consolidate into mem_bigcatP plus bigcatE. Existing flatten_mapP supplies the mathematics, but clients currently repeat bigop/flatten and filter conversions. The reflected sequence view preserves predicate satisfaction, which mem_bigcat_exists currently drops. Specialize using mem_index_iota for natural intervals; do not upstream four separate directional wrappers.
+Code uses: 6.
+Locations: util/bigcat.v:239; util/bigcat.v:345; implementation/facts/job_constructor.v:43; implementation/facts/maximal_arrival_sequence.v:70; implementation/facts/maximal_arrival_sequence.v:80; implementation/facts/maximal_arrival_sequence.v:89.
+
+bigcat_filter_eq_filter_bigcat — REPLACE
+Use big_morph with filter_cat (filter maps the cat monoid to itself); alternatively bigcatE, filter_flatten, and map_map. The same morphism proof handles the interval form; no interval induction or separate natural-range theorem is needed.
+Code uses: 1.
+Locations: implementation/facts/maximal_arrival_sequence.v:111.
+
+bigcat_uniq — PROPOSE
+PR B, corresponding review-file lemmas. allpairs_uniq_dep is related but lacks the direct concatenation interface; the interval form is a convenience specialization. Review may choose to retain only the sequence form upstream.
+Code uses: 2.
+Locations: implementation/facts/job_constructor.v:51; analysis/facts/delay_propagation.v:88.
+
+seq_different_elements_nil — REPLACE
+Use eq_in_filter to replace the predicate by pred0, then filter_pred0. The cancellation hypothesis and unequal labels prove that predicate false on the component support; no new generic filter theorem is needed.
+Code uses: 2.
+Locations: util/bigcat.v:293; util/bigcat.v:298.
+
+bigcat_seq_uniqK — REPLACE
+After PR A, use big_pred1_seq with the component function i -> filter (preim g (pred1 y)) (F i). Cancellation makes all other components empty (eq_in_filter/filter_pred0) and the selected component unchanged (all_filterP). This is a one-component bigop specialization; do not add a second cancellation-specific bigcat API.
+Code uses: 1.
+Locations: implementation/facts/maximal_arrival_sequence.v:111.
+
+bigcat_partitions — REPLACE
+Use mem_bigcatP, mem_filter, and the coverage hypothesis in the two directions. No uniqueness hypothesis on labels is needed for membership. This is the client-level partition-membership consequence of the proposed reflected view, not a separate upstream candidate.
+Code uses: 1.
+Locations: analysis/facts/behavior/arrivals.v:498.
+
+util/list.v
+-----------
+39 results: 2 KEEP LOCAL, 1 KEEP WRAPPER, 2 PREPARED, 1 PROPOSE, 33 REPLACE.
+
+last0_cons — REPLACE
+Unfold last0; case on the required nonempty tail and use last_cons or set_last_default. The result concerns a local fixed-default alias rather than a missing last operation.
+Code uses: 2.
+Locations: util/list.v:33; util/nondecreasing.v:356.
+
+last0_cat — REPLACE
+Unfold last0; last_cat and set_last_default on the nonempty right sequence give the result. Remove the local fixed-default interface after migrating callers.
+Code uses: 2.
+Locations: util/list.v:66; analysis/facts/preemption/rtc_threshold/job_preemptable.v:114.
+
+last0_ex_cat — REPLACE
+Use the upstream lastP/lastI decomposition, cats1, last_rcons and size_rcons. The requested propositional witnesses and length equation are adapters to that existing view.
+Code uses: 1.
+Locations: util/list.v:65.
+
+last0_filter — PREPARED
+PR #1649, last_filter. General arbitrary type/default statement subsumes this local nat/default-zero form and does not require nonemptiness.
+Code uses: 1.
+Locations: analysis/facts/preemption/rtc_threshold/job_preemptable.v:109.
+
+max0_cons — REPLACE
+Replace max0 (foldl maxn 0) by the standard big maximum. foldlE gives the bridge; big_cons supplies this law. Migrate aliases/callers together rather than delete this declaration while leaving max0 clients unchanged.
+Code uses: 13.
+Locations: util/list.v:88; util/list.v:102; util/list.v:104; util/list.v:117; util/list.v:129; util/list.v:139; util/list.v:150; util/list.v:151; util/list.v:168; util/list.v:193; util/list.v:204; util/nondecreasing.v:500; util/nondecreasing.v:668.
+
+max0_of_uniform_set — REPLACE
+After the max0-to-bigmax bridge, use eq_big_seq to replace every summand by the constant, then big_const_seq and idempotence of maxn on a nonempty support. Do not upstream a second maximum-fold interface.
+Code uses: 2.
+Locations: results/periodic/simulation/interval.v:117; analysis/facts/preemption/job/preemptive.v:59.
+
+in_max0_le — REPLACE
+After replacing max0 by the standard big maximum, use leq_bigmax_seq.
+Code uses: 6.
+Locations: util/superadditivity.v:195; util/nondecreasing.v:746; util/nondecreasing.v:764; results/periodic/simulation/interval.v:231; analysis/facts/model/offset.v:58; analysis/facts/transform/wc_correctness.v:209.
+
+max0_in_seq — REPLACE
+After the max0 bridge, use eq_bigmax_seq (#1652), then its maximum equality and membership witness. No duplicate max0-specific witness theorem is needed.
+Code uses: 1.
+Locations: analysis/facts/preemption/rtc_threshold/job_preemptable.v:170.
+
+max0_2cons_eq — REPLACE
+After the max0 bridge, rewrite big_cons, maxnA, and maxnn. This is idempotence of maxn, not a new sequence theorem.
+Code uses: 1.
+Locations: util/nondecreasing.v:758.
+
+max0_2cons_le — REPLACE
+After the max0 bridge, rewrite big_cons and maxnA; maxn_idPr eliminates the dominated head. Keep the x1 <= x2 hypothesis; no local maximum-fold theorem is needed.
+Code uses: 1.
+Locations: util/nondecreasing.v:760.
+
+max0_rem0 — REPLACE
+After the max0 bridge, use big_mkcond: replacing zero entries by the max identity changes no value. Use eq_bigr and case on each entry, instead of retaining a second max0 filtering theory.
+Code uses: 1.
+Locations: analysis/facts/preemption/job/limited.v:193.
+
+last_of_seq_le_max_of_seq — REPLACE
+After unfolding last0 and converting max0, handle the empty sequence directly; on a nonempty sequence, mem_last (or lastP) plus leq_bigmax_seq gives the bound.
+Code uses: 6.
+Locations: results/rta/ideal/edf/limited_preemptive.v:141; analysis/facts/preemption/rtc_threshold/job_preemptable.v:151; analysis/facts/preemption/rtc_threshold/job_preemptable.v:167; analysis/facts/preemption/rtc_threshold/job_preemptable.v:182; analysis/facts/preemption/rtc_threshold/limited.v:123; analysis/facts/preemption/rtc_threshold/limited.v:152.
+
+max_of_dominating_seq — REPLACE
+Convert both max0 values to big maxima over ordinal indices using big_tnth. Pad to the larger length with nth 0 (out-of-range values are the max identity), and use bigmax_leqP_seq/leq_bigmax_seq with the pointwise nth bound. This is a migration of the representation, not an exact named upstream replacement; retain a temporary bridge only until all callers are migrated.
+Code uses: 1.
+Locations: analysis/facts/preemption/task/limited.v:69.
+
+filter_size_rem — REPLACE
+Rewrite size_filter and count_rem; the counted element satisfies P and occurs in the sequence, so has_count and prednK turn the predecessor equation into the requested size equation. count_rem already packages removal accounting.
+Code uses: 1.
+Locations: analysis/facts/model/rbf.v:755.
+
+seq1_some — REPLACE
+Both equalities reduce to x == y via singleton and option equality. Replace the one caller with direct rewriting; no new theorem is needed.
+Code uses: 1.
+Locations: analysis/facts/model/scheduled.v:143.
+
+seq_elim_last — REPLACE
+Use the upstream lastP/lastI decomposition, cats1, last_rcons and size_rcons. The requested propositional witnesses and length equation are adapters to that existing view.
+Code uses: 1.
+Locations: util/nondecreasing.v:465.
+
+in_cat — REPLACE
+Use splitPr (or path.splitP) and cat_rcons/cats1. Upstream already provides the decomposition and, in splitPr, an additional first-occurrence guarantee.
+Code uses: 3.
+Locations: implementation/facts/extrapolated_arrival_curve.v:174; implementation/refinements/EDF/fast_search_space.v:126; implementation/refinements/EDF/fast_search_space.v:131.
+
+in_zip — REPLACE
+Use nth_zip, size_zip, and mem_nth to exhibit membership of the paired nth values. The current equal-size hypothesis is sufficient and stronger than the necessary two index bounds.
+Code uses: 1.
+Locations: util/poet.v:25.
+
+filter_in_pred0 — REPLACE
+Use hasPn and has_filter, or eq_in_filter to pred0 followed by filter_pred0. The existing reflected filter interface handles exactly this support-local condition.
+Code uses: 10.
+Locations: util/list.v:389; util/list.v:413; util/list.v:552; util/list.v:560; util/bigcat.v:266; implementation/facts/extrapolated_arrival_curve.v:157; implementation/facts/extrapolated_arrival_curve.v:179; analysis/facts/behavior/arrivals.v:252; analysis/facts/behavior/arrivals.v:277; analysis/facts/model/overheads/schedule.v:154.
+
+default_or_in — REPLACE
+Case on ltnP n (size s); use mem_nth in bounds and nth_default otherwise. mem_nthE also exposes the default-membership case. This disjunction adapter has one caller.
+Code uses: 1.
+Locations: analysis/facts/job_index.v:261.
+
+exists_two — KEEP WRAPPER
+Keep as a short propositional witness adapter at its three callers, not an upstream proposal. Its special two-element interface is analogous to the rejected two-witness sum helpers; a two-cons decomposition plus cons_uniq proves it directly. Simplify its current nth/default proof. This is a conscious exception for a small convenience wrapper, not a missing upstream counting theorem.
+Code uses: 3.
+Locations: analysis/facts/periodic/task_arrivals_size.v:64; analysis/facts/sporadic/arrival_sequence.v:45; analysis/facts/model/scheduled.v:117.
+
+has_all_nilp — REPLACE
+One caller in the local fixpoint algorithm. Case on the sequence there; all and has simplify on a nonempty cons. Do not upstream the local nilp formulation; no general relation between these predicates is missing.
+Code uses: 1.
+Locations: util/fixpoint.v:227.
+
+sorted_split — PROPOSE
+PR H, sorted_filter_split in the review file. Generalize from nat-valued f and a threshold to any transitive relation and an antitone predicate; first apply sorted_filter to the original P-filtered sequence, then filter_predI. Upstream ordered-type sorted_filter_le/gt are related but cannot directly order arbitrary payloads by a noninjective f. This corrects the earlier audit, which overstated that replacement.
+Code uses: 1.
+Locations: implementation/facts/extrapolated_arrival_curve.v:94.
+
+filter_last_mem — REPLACE
+Use has_filter to make the filtered sequence nonempty, mem_last on its nonempty cons form, and mem_filter to recover original membership. No induction over the original sequence is needed.
+Code uses: 1.
+Locations: implementation/refinements/fast_search_space_computation.v:101.
+
+nin_rem_all — REPLACE
+First replace rem_all x by filter (predC1 x), preserving the removal of every occurrence. Then use mem_filter for exclusion/subset and all_filterP for the unchanged-sequence property. rem_filter alone is insufficient on nonunique sequences because rem removes only one occurrence.
+Code uses: 1.
+Locations: util/list.v:629.
+
+in_rem_all — REPLACE
+First replace rem_all x by filter (predC1 x), preserving the removal of every occurrence. Then use mem_filter for exclusion/subset and all_filterP for the unchanged-sequence property. rem_filter alone is insufficient on nonunique sequences because rem removes only one occurrence.
+Code uses: 1.
+Locations: util/list.v:643.
+
+rem_lt_id — REPLACE
+First replace rem_all x by filter (predC1 x), preserving the removal of every occurrence. Then use mem_filter for exclusion/subset and all_filterP for the unchanged-sequence property. rem_filter alone is insufficient on nonunique sequences because rem removes only one occurrence.
+Code uses: 2.
+Locations: util/nondecreasing.v:727; util/nondecreasing.v:767.
+
+iotaD_impl — REPLACE
+Use iotaD after rewriting n = n_le + (n - n_le) with subnK under n_le <= n. This is arithmetic normalization of an existing split theorem.
+Code uses: 2.
+Locations: util/list.v:517; analysis/facts/priority/inversion.v:158.
+
+index_iota_lt_step — REPLACE
+Unfold index_iota, rewrite subSn under a < b, and simplify iota. Avoid retaining a second recursive interval enumeration API.
+Code uses: 12.
+Locations: util/list.v:549; util/list.v:556; util/list.v:620; util/list.v:630; util/list.v:681; util/list.v:685; util/list.v:687; util/nondecreasing.v:57; util/nondecreasing.v:61; util/nondecreasing.v:64; util/nondecreasing.v:67; analysis/facts/preemption/rtc_threshold/job_preemptable.v:61.
+
+index_iota_cat — REPLACE
+Unfold index_iota and use iotaD with the lengths t-t1 and t2-t; subnK/addnBA normalize lengths and offsets under t1 <= t <= t2.
+Code uses: 4.
+Locations: analysis/facts/behavior/supply.v:171; analysis/facts/model/overheads/schedule_change.v:24; analysis/facts/model/overheads/schedule_change.v:70; analysis/facts/model/overheads/schedule_change.v:73.
+
+range_filter_2cons — REPLACE
+Use eq_filter, in_cons, and orbb. This is predicate idempotence; the range definition is irrelevant to the proof.
+Code uses: 2.
+Locations: util/nondecreasing.v:723; util/nondecreasing.v:758.
+
+index_iota_filter_eqx — REPLACE
+Use filter_pred1_uniq with iota_uniq and mem_index_iota; normalize singleton membership with inE. These are existing singleton filtering facts, not new interval results.
+Code uses: 1.
+Locations: util/list.v:575.
+
+index_iota_filter_singl — REPLACE
+Use filter_pred1_uniq with iota_uniq and mem_index_iota; normalize singleton membership with inE. These are existing singleton filtering facts, not new interval results.
+Code uses: 2.
+Locations: util/nondecreasing.v:713; util/nondecreasing.v:754.
+
+index_iota_filter_inxs — REPLACE
+After replacing rem_all by filter (predC1 x), use eq_in_filter, mem_index_iota, and mem_filter. x < a ensures no enumerated index equals x.
+Code uses: 1.
+Locations: util/list.v:625.
+
+index_iota_filter_step — KEEP LOCAL
+Keep temporarily as the specialized increasing enumeration of a selected finite support, removing all copies of its current minimum. The range form is a thin local specialization. Rewrite rem_all as filter (predC1 x) and simplify before any further decision; the current minimum/removal/range interface is not a useful standalone upstream API. This is the only retained interval-enumeration algorithm, not a blanket exemption for iota wrappers.
+Code uses: 2.
+Locations: util/list.v:659; util/nondecreasing.v:761.
+
+range_iota_filter_step — KEEP LOCAL
+Keep temporarily as the specialized increasing enumeration of a selected finite support, removing all copies of its current minimum. The range form is a thin local specialization. Rewrite rem_all as filter (predC1 x) and simplify before any further decision; the current minimum/removal/range interface is not a useful standalone upstream API. This is the only retained interval-enumeration algorithm, not a blanket exemption for iota wrappers.
+Code uses: 3.
+Locations: util/nondecreasing.v:727; util/nondecreasing.v:733; util/nondecreasing.v:733.
+
+iota_filter_gt — REPLACE
+mem_nth gives membership in the filtered sequence; mem_filter and mem_index_iota give a <= the selected value, then transitivity with x < a finishes. No interval induction or new theorem is needed.
+Code uses: 1.
+Locations: util/nondecreasing.v:60.
+
+sub_count_seq — PREPARED
+PR #1649, sub_in_count. Support-restricted count monotonicity, generalized to arbitrary element types.
+Code uses: 2.
+Locations: analysis/facts/model/overheads/schedule_change_bound.v:122; analysis/facts/model/overheads/schedule_change_bound.v:355.
+
+count_predUI' — REPLACE
+Use count_predUI and addnK to rearrange inclusion-exclusion into subtraction form. The existing addition equation is the reusable theorem; this two-call subtraction rewrite adapter does not warrant a separate proposal.
+Code uses: 2.
+Locations: analysis/facts/model/overheads/schedule_change_bound.v:353; analysis/facts/model/overheads/schedule_change_bound.v:381.
+
+util/sum.v
+----------
+23 results: 2 KEEP LOCAL, 3 PREPARED, 5 PROPOSE, 13 REPLACE.
+
+sum_majorant_constant — REPLACE
+Use leq_sum_seq with the constant function, then big_const_seq/iter_addn_0 (or sum1_size/big_distrr). No separate constant-majorant theorem is needed once support-local monotonicity is available.
+Code uses: 3.
+Locations: analysis/facts/suspension.v:162; analysis/facts/suspension.v:196; analysis/facts/model/rbf.v:757.
+
+sum_split_exhaustive_mutually_exclusive_preds — REPLACE
+Use bigID and eq_bigl under the exhaustive/disjoint predicate hypotheses. The existing arbitrary-monoid decomposition is more general; no new summation splitting theorem is needed.
+Code uses: 2.
+Locations: analysis/facts/model/rbf.v:430; analysis/facts/model/workload.v:108.
+
+bigmax_leq_sum — REPLACE
+Use big_ind2 leq with the elementary bound maxn m n <= m+n (geq_max, leq_addr, leq_addl) and leq_add. Two callers do not justify another specialized fold-comparison wrapper when the standard paired induction exposes the entire argument.
+Code uses: 2.
+Locations: results/rta/ideal/elf/bounded_pi.v:277; analysis/abstract/restricted_supply/bounded_bi/edf.v:302.
+
+sum_le_subseq — REPLACE
+These two declarations duplicate each other. Use sub_le_big_seq instantiated to nat addition and leq_count_subseq. Delete both after migrating callers; preserve the predicate filter.
+Code uses: 1.
+Locations: analysis/abstract/restricted_supply/bounded_bi/edf.v:229.
+
+leq_sum_seq — PROPOSE
+PR F, leq_sum_seq in the review file. Upstream leq_sum requires global selected-index bounds; big_seq_cond localizes it. This support-local interface has 24 code occurrences and matches the support-local interfaces already proposed for sums/counts.
+Code uses: 24.
+Locations: util/sum.v:187; model/task/arrival/curve_as_rbf.v:111; results/rta/ideal/gel/bounded_pi.v:214; results/rta/ideal/elf/bounded_pi.v:467; results/periodic/simulation/interval.v:323; results/periodic/simulation/interval.v:361; analysis/facts/tdma.v:102; analysis/facts/hyperperiod.v:511; analysis/facts/busy_interval/existence.v:475; analysis/facts/model/dynamic_suspension.v:89; analysis/facts/model/dynamic_suspension.v:96; analysis/facts/model/dynamic_suspension.v:119; analysis/facts/model/cumulative_cost.v:154; analysis/facts/model/dbf.v:130; analysis/facts/model/rbf.v:112; analysis/facts/model/rbf.v:151; analysis/facts/workload/edf_athep_bound.v:137; analysis/facts/workload/elf_athep_bound.v:148; analysis/facts/workload/elf_athep_bound.v:173; analysis/facts/model/sbf/periodic.v:153; analysis/facts/model/sbf/periodic.v:248; analysis/facts/model/sbf/periodic.v:296; analysis/abstract/restricted_supply/task_ibf_readiness.v:89; analysis/abstract/restricted_supply/bounded_bi/edf.v:230.
+
+eq_sum_seq — REPLACE
+Use big_filter on both sides and eq_big_seq on the filtered sequence, converting Boolean term equality with eqP. No additional nat-specific equality interface is required.
+Code uses: 3.
+Locations: util/sum.v:200; analysis/facts/busy_interval/service_inversion.v:305; analysis/facts/model/exceedance/SBF.v:71.
+
+leq_sum_seq_pred — PREPARED
+PR #1650, sub_in_sum. Retain locally until the dependency provides that API, then migrate its seven uses.
+Code uses: 7.
+Locations: analysis/facts/suspension.v:165; analysis/facts/suspension.v:199; analysis/facts/model/service_of_jobs.v:137; analysis/facts/model/service_of_jobs.v:479; analysis/facts/model/rbf.v:74; analysis/facts/model/rbf.v:155; analysis/facts/model/workload.v:45.
+
+leq_sum_subseq — REPLACE
+These two declarations duplicate each other. Use sub_le_big_seq instantiated to nat addition and leq_count_subseq. Delete both after migrating callers; preserve the predicate filter.
+Code uses: 3.
+Locations: util/sum.v:155; results/transfer_schedulability/criterion.v:494; results/transfer_schedulability/criterion.v:730.
+
+leq_sum_sub_uniq — REPLACE
+Use sub_le_big_seq with leq_uniq_count: uniqueness is required only for the left sequence. Do not incorrectly require uniqueness of the right sequence during migration.
+Code uses: 3.
+Locations: results/periodic/simulation/interval.v:327; results/periodic/simulation/interval.v:366; analysis/facts/model/workload.v:351.
+
+ltn_sum_leq_seq — PREPARED
+PR #1651 supplies sequence equality and strict inequality characterizations. The original strict implication follows from hasP and the new Boolean has characterization.
+Code uses: 1.
+Locations: util/sum.v:205.
+
+eq_sum_leq_seq — PREPARED
+PR #1651 supplies sequence equality and strict inequality characterizations. The original strict implication follows from hasP and the new Boolean has characterization.
+Code uses: 1.
+Locations: analysis/facts/model/service_of_jobs.v:377.
+
+sum_of_ones — REPLACE
+Use sum_nat_const_nat, muln1, and addKn. Twelve uses should migrate to that existing constant-sum interface rather than introduce another interval-one wrapper.
+Code uses: 12.
+Locations: analysis/abstract/lower_bound_on_service.v:77; analysis/abstract/lower_bound_on_service.v:95; analysis/abstract/busy_interval.v:195; analysis/abstract/busy_interval.v:398; analysis/facts/behavior/service.v:160; analysis/facts/busy_interval/pi.v:517; analysis/facts/busy_interval/pi.v:537; analysis/facts/busy_interval/existence.v:296; analysis/facts/model/sbf/periodic.v:164; analysis/facts/model/sbf/periodic.v:256; analysis/facts/model/sbf/periodic.v:304; analysis/abstract/restricted_supply/bounded_bi/aux.v:144.
+
+big_nat_eq0 — REPLACE
+Specialize sum_nat_seq_eq0 to index_iota; use allP, mem_index_iota, and eqP to translate the current iff. Existing sum-zero reflection is the reusable result.
+Code uses: 7.
+Locations: analysis/facts/behavior/service.v:327; analysis/facts/behavior/service.v:458; analysis/facts/behavior/service.v:542; analysis/facts/behavior/service.v:597; analysis/facts/periodic/task_arrivals_size.v:90; analysis/facts/periodic/task_arrivals_size.v:144; analysis/facts/priority/fifo.v:190.
+
+sum_le_summation_range — PROPOSE
+PR F, consolidate into sum_nat_lt_size in the review file. Any nat-valued sequence sum smaller than its support size has a zero-valued term; specialize to index_iota, size_iota, and addKn for the current interval result. The generalized statement uses has and removes interval-specific arithmetic.
+Code uses: 2.
+Locations: analysis/facts/model/ideal/service_of_jobs.v:62; analysis/facts/model/ideal/service_of_jobs.v:134.
+
+big_sum_eq_in_eq_sized_intervals — REPLACE
+Shift both intervals to 0..d with big_addn and normalize offsets; eq_big_nat then applies to the given pointwise equality. Existing reindexing handles this exact use.
+Code uses: 1.
+Locations: analysis/facts/hyperperiod.v:145.
+
+sum_over_partitions_le — PROPOSE
+PR A, leq_sum_partition in the review file. Arbitrary eqType labels with a covering sequence, allowing repeated labels; partition_big requires finite-type labels and is an equality decomposition. Repetition can overcount, hence an inequality rather than equality. The reflected covering and nat-sum interface has five callers.
+Code uses: 5.
+Locations: analysis/facts/model/arrival_curves.v:100; analysis/facts/model/arrival_curves.v:160; analysis/facts/model/dynamic_suspension.v:69; analysis/facts/model/workload.v:65; analysis/facts/priority/fifo_ahep_bound.v:124.
+
+reorder_summation — REPLACE
+Derive from leq_sum_partition using source predicate P i && (p i != y0) and target label sequence filtered by != y0. Coverage follows from the original coverage plus the excluded-label condition; use big_filter/eq_bigl to remove redundant tests. Four callers should use this specialization, not a second upstream excluded-label theorem.
+Code uses: 4.
+Locations: results/rta/ideal/edf/bounded_pi.v:237; results/rta/ideal/gel/bounded_pi.v:245; analysis/facts/workload/edf_athep_bound.v:152; analysis/facts/workload/elf_athep_bound.v:239.
+
+sum_over_partitions_eq — PROPOSE
+PR A, partition_big_seq. Generalized to any commutative monoid; only label uniqueness is needed. Drop the unnecessary uniqueness assumption on the source sequence.
+Code uses: 1.
+Locations: analysis/facts/model/workload.v:84.
+
+sum_leq_mono — REPLACE
+Unfold the local monotone alias; apply leq_sum_seq pointwise in the two arguments. This combines the existing function monotonicity hypotheses with sum monotonicity; it adds no separate sequence fact.
+Code uses: 6.
+Locations: analysis/facts/model/rbf.v:289; analysis/facts/model/rbf.v:300; analysis/facts/model/rbf.v:310; analysis/facts/model/overheads/sbf/fp.v:167; analysis/facts/model/overheads/sbf/fifo.v:159; analysis/facts/model/overheads/sbf/jlfp.v:160.
+
+sum_unit1 — PROPOSE
+PR G, big_unit in the review file. Generalize the 15-use unit-sum simplification to an arbitrary monoid. Upstream big_ord1 and big_bool are analogous indexing conveniences; there is no unit-indexed counterpart at the audited revision.
+Code uses: 15.
+Locations: analysis/facts/model/ideal_uni_exceed.v:17; analysis/facts/model/ideal_uni_exceed.v:61; analysis/facts/model/ideal_uni_exceed.v:61; analysis/facts/model/ideal_uni_exceed.v:64; analysis/facts/model/ideal_uni_exceed.v:64; analysis/facts/model/ideal_uni_exceed.v:73; analysis/facts/model/ideal_uni_exceed.v:105; analysis/facts/model/restricted_supply/schedule.v:32; analysis/facts/model/restricted_supply/schedule.v:41; analysis/facts/model/overheads/schedule.v:33; analysis/facts/model/overheads/blackout_bound.v:52; analysis/facts/model/ideal/schedule.v:42; analysis/facts/model/ideal/schedule.v:77; analysis/facts/model/ideal/schedule.v:132; analysis/facts/model/ideal/schedule.v:141.
+
+pigeonhole_on_interval — REPLACE
+Convert Boolean sums to counts using big_mkcond and sum1_count. count_predUI gives inclusion-exclusion; count_size bounds the union count by the interval length. Monotonicity and leq_subLR/subn arithmetic then yield the requested lower bound. No separate interval pigeonhole theorem is needed.
+Code uses: 3.
+Locations: analysis/facts/model/sbf/periodic.v:174; analysis/facts/model/sbf/periodic.v:266; analysis/facts/model/sbf/periodic.v:313.
+
+sum_ge_2_seq — KEEP LOCAL
+Explicitly excluded from upstreaming at user request. Their zero-or-one summands and two completion witnesses are specialized to Prosa proofs. Keep locally and simplify via counting/filtering; do not restore them in the review file.
+Code uses: 2.
+Locations: util/sum.v:519; analysis/facts/completes_at.v:70.
+
+sum_ge_2_nat — KEEP LOCAL
+Explicitly excluded from upstreaming at user request. Their zero-or-one summands and two completion witnesses are specialized to Prosa proofs. Keep locally and simplify via counting/filtering; do not restore them in the review file.
+Code uses: 2.
+Locations: analysis/facts/completes_at.v:54; analysis/facts/model/overheads/schedule_change_bound.v:303.
+
+Net effect after the proposed migrations
+----------------------------------------
+Only five named results in these four files are deliberately retained:
+exists_two (thin propositional adapter), index_iota_filter_step and
+range_iota_filter_step (specialized support enumeration), sum_ge_2_seq and
+sum_ge_2_nat (the user-excluded completion-witness interfaces).
+This does not imply keeping their current long proofs. Simplify them and
+consider moving algorithm-specific helpers out of generic utility files.
+Local definitions such as max0/rem_all require separate representation
+migration; simply deleting supporting lemmas now would break their users.
+
+Follow-up from the Prosa cleanup review (2026-10-24)
+-------------------------------------------------
+Keep max0_cons and max0_of_uniform_set while Prosa uses max0. Revisit the
+max0 definition and its helper lemmas together: evaluate migrating to
+MathComp big maxima, then adapt callers and remove redundant wrappers.
+Raise this follow-up again at the end of the lemma-by-lemma cleanup review.
+
+Additional candidates from the Prosa deletion walkthrough (2026-10-24)
+---------------------------------------------------------------------
+default_or_in (Prosa util/list.v)
+  forall {X : eqType} (n : nat) (d : X) (xs : seq X),
+    nth d xs n = d \/ nth d xs n \in xs.
+  Retain in Prosa and evaluate upstreaming as nth_default_or_mem (name
+  provisional). Useful exhaustive default-or-member case split for nth.
+  Derived from nth_default and mem_nth via ltnP on the index.
+  TODO: check existing sequence views for an equivalent interface, settle
+  statement/name, and prepare and compile an idiomatic SSR implementation.
+  The earlier suggestion to weaken eqType to Type was incorrect with
+  MathComp Boolean membership; a Type variant needs propositional membership.
+  Sole caller: analysis/facts/job_index.v.
+
+max_of_dominating_seq (Prosa util/list.v)
+  Pointwise domination of zero-padded nth values implies domination of max0.
+  Retain in Prosa; evaluate a general big-maximum interface during the max0
+  migration. Its unequal-length and zero-padding behavior is substantial,
+  so the earlier straightforward-removal classification was too aggressive.
+  No new upstream implementation has been prepared for this candidate.
+
+Updated max0 follow-up
+  Retained during the walkthrough: max0_cons, max0_of_uniform_set,
+  in_max0_le, max0_in_seq, max0_rem0, last_of_seq_le_max_of_seq, and
+  max_of_dominating_seq. Evaluate the definition and callers together and
+  raise this follow-up again at the end of the cleanup review. These are
+  not all independent upstream candidates; several support a local
+  representation already served upstream by big maxima.
